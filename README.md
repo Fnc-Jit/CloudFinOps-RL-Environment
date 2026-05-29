@@ -10,94 +10,183 @@ base_path: /web
 tags:
   - openenv
 ---
-
-# ☁️ CloudFinOps-Env
-
-> **An RL environment combining cloud cost-optimization, SLA incident management, and carbon emissions tracking (GreenOps).**
-
-[![Validate](https://github.com/Fnc-Jit/Cloud-Solutions_Re/actions/workflows/validate.yml/badge.svg)](https://github.com/Fnc-Jit/Cloud-Solutions_Re/actions/workflows/validate.yml)
-[![Python 3.10+](https://img.shields.io/badge/python-3.10%2B-blue.svg)](https://www.python.org/)
-[![OpenEnv](https://img.shields.io/badge/OpenEnv-compatible-green.svg)](https://huggingface.co/openenv)
-[![Tests](https://img.shields.io/badge/tests-84%20passed-brightgreen.svg)]()
-
+ 
+<p align="center">
+  <img src="https://img.shields.io/badge/Python-3.10+-3776AB?style=flat-square&logo=python&logoColor=white" />
+  <img src="https://img.shields.io/badge/FastAPI-0.111-009688?style=flat-square&logo=fastapi&logoColor=white" />
+  <img src="https://img.shields.io/badge/OpenEnv-compatible-22c55e?style=flat-square" />
+  <img src="https://img.shields.io/badge/Tests-84_passed-22c55e?style=flat-square" />
+  <a href="https://github.com/Fnc-Jit/Cloud-Solutions_Re/actions/workflows/validate.yml">
+    <img src="https://github.com/Fnc-Jit/Cloud-Solutions_Re/actions/workflows/validate.yml/badge.svg?style=flat-square" />
+  </a>
+  <img src="https://img.shields.io/badge/License-MIT-6366f1?style=flat-square" />
+</p>
+<h1 align="center">CloudFinOps-Env</h1>
+ 
+<p align="center">
+  RL environment for cloud cost optimization, SLA incident management, and carbon emissions reduction — with 4 difficulty tiers, live dashboard, and explainable per-step scoring.
+</p>
+<p align="center">
+  <b>Built for the Meta AI × Hugging Face OpenEnv Hackathon</b>
+</p>
+---
+ 
 ![CloudFinOps Dashboard](assets/dashboard.png)
-![CloudFinOps Dashboard Details](assets/dashboard_details.png)
-
-Built for the **Meta AI × Hugging Face OpenEnv Hackathon**. Agents manage a fleet of AWS-style servers, balancing cost, performance, carbon emissions, and stakeholder communication through a REST API.
-
+ 
+---
+ 
+## TLDR
+ 
+> Real cloud teams constantly trade off cost, SLA risk, and sustainability under time pressure. No existing RL benchmark captures that three-way tradeoff with realistic constraints. CloudFinOps-Env builds that benchmark: an agent manages a fleet of AWS-style servers across 4 task tiers — from zombie cleanup to carbon migration — and is scored on cost efficiency, uptime, carbon reduction, and stakeholder communication simultaneously.
+>
+> **Baseline agent (Llama 4 Scout 17B): 0.7861 average score across all 4 tiers. 84 unit tests. Full CI/CD. Live dashboard at `/dashboard`.**
+ 
+---
+ 
+## Motivation — why this environment exists
+ 
+Cloud infrastructure decisions are not made in isolation. Every action an SRE or FinOps engineer takes involves at least three competing objectives at once:
+ 
+- **Cost** — unused capacity is money burning. Over-provisioning is the default failure mode.
+- **Reliability** — a SLA breach is an incident. Aggressive cost-cutting that kills uptime is worse than doing nothing.
+- **Sustainability** — carbon emissions from cloud infrastructure are increasingly a real business metric, not just PR.
+Most existing RL environments for infrastructure management optimize one objective and treat the others as constraints or ignore them entirely. That maps poorly to real operations, where the whole point is navigating the tradeoff.
+ 
+CloudFinOps-Env is designed to **benchmark whether an agent can make the same multi-objective tradeoff that human operators make every day** — with the same delayed consequences, the same stakeholder communication overhead, and the same budget pressure. It was built for the OpenEnv hackathon and for anyone who wants a realistic stress test for infrastructure decision agents.
+ 
+---
+ 
+## Architecture
+ 
+```
+┌────────────────────────────────────────────────────────────────┐
+│                       CloudFinOps-Env                          │
+│                                                                │
+│  ┌──────────┐    ┌───────────────────┐    ┌─────────────────┐ │
+│  │ models.py│───▶│  engine +         │◀───│   server/app.py │ │
+│  │ Pydantic │    │  environment.py   │    │ FastAPI+OpenEnv  │ │
+│  │ Schemas  │    │                   │    │ + Dashboard      │ │
+│  └──────────┘    └───────────────────┘    └─────────────────┘ │
+│                          ▲                        ▲            │
+│                          │                        │            │
+│                    ┌─────┴─────┐          ┌───────┴──────┐    │
+│                    │   Tests   │          │ inference.py  │    │
+│                    │ 84 unit   │          │  LLM Agent    │    │
+│                    │   tests   │          │  Evaluator    │    │
+│                    └───────────┘          └──────────────┘    │
+└────────────────────────────────────────────────────────────────┘
+```
+ 
+---
+ 
 ## Environment Description
-
-CloudFinOps-Env simulates day-to-day cloud operations where an agent must optimize spend, preserve reliability, and reduce emissions under realistic constraints.
-
-## Motivation
-
-Real cloud teams constantly trade off cost, SLA risk, and sustainability. This environment is designed to benchmark whether an agent can make practical infrastructure decisions that humans actually make in operations, SRE, and FinOps workflows.
-
----
-
-## 🏗️ Architecture
-
+ 
+CloudFinOps-Env simulates day-to-day cloud operations where an agent manages a fleet of AWS-style servers. Each episode gives the agent a fixed budget and a set of objectives. The agent must observe server state, decide which actions to take at each step, and avoid SLA breaches and budget overruns — while reducing cost, carbon, or both depending on the task tier.
+ 
+### What the agent sees
+ 
+A structured observation delivered via `POST /reset` and refreshed after each `POST /step`:
+ 
+```json
+{
+  "servers": [...],
+  "traffic_load": 30.0,
+  "spike_detected": false,
+  "incidents": [],
+  "budget_remaining": 5.0,
+  "time_step": 0,
+  "inbox": ["Ops Team: Please confirm you've reviewed the scaling plan."],
+  "carbon_kwh": 0.0
+}
 ```
-┌─────────────────────────────────────────────────────────────┐
-│                    CloudFinOps-Env                           │
-│                                                             │
-│  ┌──────────┐   ┌──────────────┐   ┌────────────────────┐  │
-│  │ models.py│──▶│  engine +    │◀──│    server/app.py   │  │
-│  │ Pydantic │   │ environment  │   │ FastAPI + OpenEnv   │  │
-│  │ Schemas  │   │  .py         │   │ + Dashboard        │  │
-│  └──────────┘   └──────────────┘   └────────────────────┘  │
-│                        ▲                    ▲               │
-│                        │                    │               │
-│                   ┌────┴────┐         ┌─────┴─────┐        │
-│                   │  Tests  │         │inference.py│        │
-│                   │ 84 unit │         │ LLM Agent  │        │
-│                   │  tests  │         │ Evaluator  │        │
-│                   └─────────┘         └───────────┘        │
-└─────────────────────────────────────────────────────────────┘
-```
-
-## ✨ Key Features
-
-| Feature | Description |
-|---------|-------------|
-| 🏢 **AWS Instance Catalog** | 10 realistic instance types (`t3.micro` → `m5.xlarge`) with real-world pricing |
-| 📊 **Trailing Metrics History** | `cpu_history` / `memory_history` — last 3 steps per server for LLM trend detection |
-| 🌍 **GreenOps Carbon Tracking** | Per-instance `carbon_kwh` emissions, ARM (r6g) vs x86 (c5/m5) efficiency modeling |
-| 🎯 **4 Difficulty Tiers** | Easy → Medium → Hard → Green, each with unique objectives and grading |
-| 📬 **Human-in-the-Loop** | Inbox messages from stakeholders; replying earns bonus points |
-| ⏱️ **Delayed Scaling** | UPSCALE queues for next step — agents must plan ahead |
-| 🔒 **Deterministic Noise** | Hash-seeded metric jitter — fully reproducible episodes |
-| 📈 **Live Dashboard** | Real-time glassmorphism web UI at `/dashboard` with sparklines |
-| 🔎 **Explainable Scoring** | Per-step `reward_breakdown` + final `score_breakdown` for transparent judge-facing evaluation (see [Explainable Scoring Output](#-explainable-scoring-output)) |
-| 🧠 **LLM Conversational Memory** | Multi-turn conversation history so the agent remembers previous actions and avoids repeating mistakes |
-| 🧪 **84 Unit Tests** | Comprehensive pytest suite with 20 test classes + GitHub Actions CI |
-
+ 
+Each server includes `cpu_history` and `memory_history` — the last 3 steps — so agents can detect trends without external memory systems.
+ 
+### What the agent does (action space)
+ 
+| Command | Effect | Reward |
+|---|---|---|
+| `TERMINATE` | Kill a server immediately | +10 |
+| `UPSCALE` | Queue upgrade for next step | −5 |
+| `DOWNSCALE` | Halve cost; CPU load ×1.8 | +5 |
+| `REDISTRIBUTE_LOAD` | Spread CPU evenly across fleet | +3 |
+| `IGNORE` | No action this step | 0 |
+ 
+**Penalties:**
+- Invalid target: −2
+- SLA breach (CPU ≥ 100%): −100 + episode ends
+- Budget overrun: −20 + episode ends
+- Sustained high cost (>$0.50/step): −1/step
+### What the agent is scored on
+ 
+Scoring is task-dependent and fully transparent via `reward_breakdown` and `score_breakdown` in the step `info` payload (see [Explainable Scoring](#explainable-scoring)).
+ 
 ---
-
-## Task Descriptions with Expected Difficulty
-
-### 🟢 Easy — "Zombie Cleanup"
-Terminate 3 idle servers (`idle-0`, `idle-1`, `idle-2`) without touching active ones.  
-**Budget:** $5.00 | **Servers:** 10 | **Grading:** +1/3 per zombie killed, -0.25 per wrongful termination.
-
-### 🟡 Medium — "CTO Budget Squeeze"
-Cut cloud costs by ≥50% across 12 over-provisioned servers.  
+ 
+## Task Tiers
+ 
+### Easy — "Zombie Cleanup"
+Terminate 3 idle servers without touching active ones.
+**Budget:** $5.00 | **Servers:** 10 | **Grading:** +1/3 per zombie killed, −0.25 per wrongful termination.
+ 
+### Medium — "CTO Budget Squeeze"
+Cut cloud costs by ≥50% across 12 over-provisioned servers.
 **Budget:** $10.00 | **Servers:** 12 | **Grading:** Proportional to `cost_saved_pct / 50%`.
-
-### 🔴 Hard — "Black Friday Chaos"
-Handle a traffic spike with exponential ramp. Keep DB servers alive while managing budget.  
+ 
+### Hard — "Black Friday Chaos"
+Handle a traffic spike with exponential ramp. Keep DB servers alive under budget pressure.
 **Budget:** $4.00 | **Servers:** 8 | **Grading:** Uptime (60%) + Cost Efficiency (40%) + Inbox Bonus.
-
-### 🌍 Green — "The Green Initiative"
-Reduce carbon emissions by 40% by migrating workloads from dirty x86 instances (c5, m5) to efficient ARM Graviton (r6g).  
+ 
+### Green — "The Green Initiative"
+Reduce carbon emissions by 40% by migrating workloads from dirty x86 instances to ARM Graviton.
 **Budget:** $8.00 | **Servers:** 10 | **Grading:** Carbon Reduction (50%) + Uptime (30%) + Cost (10%) + Inbox (10%).
-
+ 
 ---
-
-## 📊 Carbon Intensity per Instance Type
-
-| Instance | Architecture | Carbon (kWh/step) | Category |
-|----------|-------------|-------------------|----------|
+ 
+## Key Design Decisions
+ 
+These choices were deliberate. Each one reflects a specific failure mode in real operations or in standard RL benchmarks.
+ 
+**Deterministic noise via hash-seeded jitter** — Episodes are reproducible. The same seed always produces the same metric trajectory, making benchmark comparisons meaningful rather than variance-dominated.
+ 
+**Delayed scaling (UPSCALE queues for next step)** — Agents cannot react instantaneously. An upscale decision made now affects the next step, forcing planning under uncertainty rather than pure reactive policy.
+ 
+**Trailing metrics history (last 3 steps)** — Designed for LLM agents with limited context windows. Rather than requiring an external memory system, trend detection is baked into the observation. A CPU rising across three consecutive steps is directly visible without any state tracking.
+ 
+**Carbon intensity modeled by architecture** — ARM Graviton (r6g) instances produce 2–3× less carbon per step than equivalent x86 (c5/m5) instances. This models the real-world energy efficiency gap and makes the Green tier a genuine migration planning problem, not just a "terminate stuff" task.
+ 
+**Human-in-the-loop inbox** — Stakeholders send messages; replying earns bonus points. This tests whether an agent can handle communication overhead while managing infrastructure — a real operational requirement that pure cost-optimization benchmarks omit.
+ 
+**Strict score clamping to (0, 1)** — All scores are epsilon-clamped (0.001 ≤ score ≤ 0.999). No perfect scores, no zero scores. Forces agents to demonstrate partial competence gradients rather than binary pass/fail.
+ 
+---
+ 
+## Baseline Results
+ 
+```
+============================================================
+  BASELINE — Llama 4 Scout 17B, all 4 tiers
+============================================================
+  easy:    0.9990  ██████████████████░░
+  medium:  0.4954  █████████░░░░░░░░░░░
+  hard:    0.7000  █████████████░░░░░░░
+  green:   0.9499  ██████████████████░░
+  AVERAGE: 0.7861
+============================================================
+```
+ 
+![Baseline Evaluation Results](assets/baseline_scores.png)
+ 
+The medium tier score (0.4954) reflects the genuine difficulty of the CTO Budget Squeeze: cutting 50% costs on 12 servers without triggering SLA breaches requires planning more than 1 step ahead, and the baseline agent's greedy policy degrades under that constraint. The hard tier (0.7000) recovers because the exponential traffic ramp is detectable in the trailing metrics history — agents that read `cpu_history` trends before acting outperform reactive ones.
+ 
+> All scores are within the open interval (0, 1). Run your own evaluation by following the setup instructions below and pointing the evaluator at any OpenAI-compatible endpoint.
+ 
+---
+ 
+## Carbon Intensity Reference
+ 
+| Instance | Architecture | Carbon (kWh/step) | Class |
+|---|---|---|---|
 | `t3.micro` | x86 | 0.005 | Web |
 | `t3.medium` | x86 | 0.012 | Web |
 | `t3.large` | x86 | 0.022 | Web |
@@ -108,420 +197,216 @@ Reduce carbon emissions by 40% by migrating workloads from dirty x86 instances (
 | `r6g.xlarge` | ARM Graviton | 0.028 | DB |
 | `m5.large` | x86 | **0.040** | Batch |
 | `m5.xlarge` | x86 | **0.075** | Batch |
-
-> ARM Graviton instances produce **2–3× less carbon** than equivalent x86 instances.
-
+ 
+ARM Graviton instances produce **2–3× less carbon** than equivalent x86. The Green tier is won by migrating compute and batch workloads from c5/m5 to r6g before time runs out.
+ 
 ---
-
-## 📈 Trailing Metrics History
-
-Each server's observation includes the **last 3 steps** of CPU and memory utilisation:
-
-```json
-{
-  "id": "web-0",
-  "type": "t3.medium",
-  "cpu_util": 85.0,
-  "cpu_history": [60.2, 72.5, 85.0],
-  "memory_util": 45.0,
-  "memory_history": [38.1, 41.7, 45.0]
-}
-```
-
-This lets LLM agents **detect trends** (e.g., "CPU rising 3 steps in a row → act preemptively") without needing explicit memory systems.
-
----
-
-## Setup and Usage Instructions
-
-Before submitting, ensure the following **3 mandatory environment variables** are defined:
-
-| Variable | Required | Description |
-|----------|----------|-------------|
-| `API_BASE_URL` | **Yes** | The API endpoint for the LLM (OpenAI-compatible) |
-| `MODEL_NAME` | **Yes** | The model identifier to use for inference |
-| `HF_TOKEN` | **Yes** | Your Hugging Face / API key |
-
-These are the **only** variables the automated evaluator checks. To test with different providers, simply point these at the desired endpoint:
-
-> **Recommended baseline model for this environment:** `openai/gpt-oss-120b` (via Hugging Face Router).
-
-### 1. Clone
-```bash
-git clone https://github.com/Fnc-Jit/Cloud-Solutions_Re.git
-cd cloudfinops_env
-```
-
-### 2. Build Docker Image
-```bash
-docker build -t cloudfinops-env:latest -f server/Dockerfile .
-```
-
-### 3. Start the Environment Server
-```bash
-docker run -p 8000:8000 cloudfinops-env:latest
-```
-
-### 4. Open the Live Dashboard
-Open `http://localhost:8000/dashboard` in your browser.
-
-### 5. Run the Agent Evaluator
-```bash
-docker run \
-  -e ENV_BASE_URL=http://host.docker.internal:8000 \
-  cloudfinops-env:latest python3 /app/env/inference.py
-```
-
-> Defaults for `API_BASE_URL`, `MODEL_NAME`, and `HF_TOKEN` are already set in `inference.py`. Override via `-e` flags if needed.
-
-### 6. Run Tests
-```bash
-docker run --rm cloudfinops-env:latest python3 -m pytest tests/ -v
-```
-
-### Alternative: Running Locally with uv
-
-```bash
-# Install dependencies
-uv sync
-
-# Start the server
-uv run server
-
-# Or with uvicorn directly
-uvicorn server.app:app --reload --host 0.0.0.0 --port 8000
-```
-
-### Alternative: Running Locally (Direct)
-
-```bash
-# Defaults are set in inference.py — just run:
-python inference.py
-
-# To override any variable:
-# export API_BASE_URL=https://router.huggingface.co/v1
-# export MODEL_NAME=openai/gpt-4o
-# export HF_TOKEN=hf_your_token_here
-# python inference.py
-```
-
-### Alternative: pip + OpenEnv Core Scaffold
-
-```bash
-python3 -m venv .venv
-source .venv/bin/activate
-pip install -U pip
-pip install "openenv-core[core]>=0.2.2" pytest
-pip install -e .
-```
-
-### Alternative: Using the Python SDK
-
-```python
-from cloudfinops_env import CloudFinOpsAction, CloudFinOpsEnv
-
-# Connect to a running server
-with CloudFinOpsEnv(base_url="http://localhost:8000") as env:
-    result = env.reset()
-    print(f"Budget: {result.observation.budget_remaining}")
-
-    result = env.step(CloudFinOpsAction(command="TERMINATE", target_id="idle-0"))
-    print(f"Reward: {result.reward}")
-```
-
----
-
-## Deploying to Hugging Face Spaces
-
-```bash
-# From the environment directory
-openenv push
-
-# Or specify options
-openenv push --repo-id your-username/cloudfinops-env --private
-```
-
----
-
-## 🖥️ API Endpoints
-
-| Method | Path | Description |
-|--------|------|-------------|
-| `GET` | `/health` | Health check (OpenEnv standard) |
-| `POST` | `/reset` | Reset environment for a task (`{"task_id": "easy"}`) |
-| `POST` | `/step` | Submit an action and advance the engine |
-| `GET` | `/state` | Current observation (read-only, no side effects) |
-| `GET` | `/schema` | Action/Observation JSON schemas (OpenEnv standard) |
-| `WS` | `/ws` | WebSocket persistent session (OpenEnv standard) |
-| `GET` | `/dashboard` | Real-time glassmorphism web dashboard |
-| `GET` | `/history` | Agent action history for current episode |
-
----
-
-## 🎮 Action Space
-
-| Command | Effect | Reward |
-|---------|--------|--------|
-| `TERMINATE` | Kill a server immediately | +10 |
-| `UPSCALE` | Queue upgrade (applies next step) | -5 |
-| `DOWNSCALE` | Halve cost, but CPU load × 1.8 | +5 |
-| `REDISTRIBUTE_LOAD` | Spread CPU evenly across fleet | +3 |
-| `IGNORE` | Do nothing this step | 0 |
-
-**Penalties:**
-- Invalid target: **-2**
-- SLA breach (CPU ≥ 100%): **-100** + episode ends
-- Budget overrun: **-20** + episode ends
-- High ongoing cost (>$0.50/step): **-1** per step
-
----
-
-## 📊 Observation Space
-
-```json
-{
-  "servers": [...],
-  "traffic_load": 30.0,
-  "spike_detected": false,
-  "incidents": [],
-  "budget_remaining": 5.0,
-  "time_step": 0,
-  "inbox": ["Ops Team: ..."],
-  "carbon_kwh": 0.0
-}
-```
-
-Each server includes:
-- `id`, `type`, `cpu_util`, `memory_util`, `cost_per_hour`, `status`
-- `cpu_history`: last 3 CPU values
-- `memory_history`: last 3 memory values
-
----
-
-## 🔎 Explainable Scoring Output
-
-The environment now returns a transparent scoring payload in `info` so evaluators can understand exactly why a score was produced.
-
-- **Per-step output:** `info.reward_breakdown`
-  - cumulative `penalties` and `bonuses` observed so far in the episode
-- **Final-step output (when `done=true`):** `info.score_breakdown`
-  - detailed scoring components for `cost`, `sla`, `carbon`, `inbox_reply_bonus`, and `penalties`
-  - includes `raw_score`, `final_score`, and score-bound metadata
-
-Implementation reference:
-- Per-step `reward_breakdown` is assembled in the engine step response.
-- Final-step `score_breakdown` is attached alongside `grader_score`.
-- Breakdown composition is centralized in `_build_score_breakdown(...)` in `server/cloudfinops_env_environment.py`.
-
-Example final `info` shape:
-
+ 
+## Explainable Scoring
+ 
+Every step returns a `reward_breakdown` in `info`. The final step (when `done=true`) returns a full `score_breakdown`. This makes the grading contract auditable — evaluators can see exactly which component drove the score, not just the final number.
+ 
 ```json
 {
   "grader_score": 0.7421,
   "reward_breakdown": {
-    "penalties": {
-      "high_runtime_cost": 3.0,
-      "upscale_action_cost": 10.0
-    },
-    "bonuses": {
-      "terminate_action": 20.0,
-      "inbox_reply": 2.0
-    }
+    "penalties": { "high_runtime_cost": 3.0, "upscale_action_cost": 10.0 },
+    "bonuses": { "terminate_action": 20.0, "inbox_reply": 2.0 }
   },
   "score_breakdown": {
     "task_id": "hard",
     "raw_score": 0.7421,
     "final_score": 0.7421,
-    "cost": {
-      "saved_pct": 0.3814,
-      "weight": 0.4,
-      "contribution": 0.1526
-    },
-    "sla": {
-      "breached": false,
-      "weight": 0.6,
-      "contribution": 0.6
-    },
-    "carbon": {
-      "reduction_pct": 0.0,
-      "weight": 0.0,
-      "contribution": 0.0
-    },
-    "inbox_reply_bonus": {
-      "applied": false,
-      "value": 0.0
-    },
-    "penalties": {
-      "grading": {
-        "active_termination": 0.0,
-        "sla_crash_penalty": 0.0
-      }
-    }
+    "cost": { "saved_pct": 0.3814, "weight": 0.4, "contribution": 0.1526 },
+    "sla": { "breached": false, "weight": 0.6, "contribution": 0.6 },
+    "carbon": { "reduction_pct": 0.0, "weight": 0.0, "contribution": 0.0 },
+    "inbox_reply_bonus": { "applied": false, "value": 0.0 },
+    "penalties": { "grading": { "active_termination": 0.0, "sla_crash_penalty": 0.0 } }
   }
 }
 ```
-
+ 
+Implementation: `reward_breakdown` is assembled per step in the engine. `score_breakdown` is attached at episode end via `_build_score_breakdown(...)` in `server/cloudfinops_env_environment.py`.
+ 
 ---
-
-## 🏆 Baseline Scores
-
-The enclosed baseline evaluator (`inference.py`) establishes the reference performance for agents.
-
-> **Score Range:** All task scores are strictly within the open interval **(0, 1)** — exclusive of both 0.0 and 1.0. The grading engine enforces this constraint via epsilon clamping (`0.001 ≤ score ≤ 0.999`).
-
-![Baseline Evaluation Results](assets/baseline_scores.png)
-
-| Task | Difficulty | Baseline Score (Llama 4 Scout 17B) | Success Status |
-|------|------------|--------------------------------|----------------|
-| `easy` | Easy | 0.9990 | ✅ |
-| `medium` | Medium | 0.4954 | ✅ |
-| `hard` | Hard | 0.7000 | ✅ |
-| `green` | Green | 0.9499 | ✅ |
-| **Average** | — | **0.7861** | ✅ |
-
-> **Note:** Run the evaluator yourself using the setup and usage instructions above to see the exact real-time scores for your chosen LLM.
-
-## Documentation Coverage
-
-This README explicitly includes all required sections:
-
-1. Environment description and motivation
-2. Action and observation space definitions
-3. Task descriptions with expected difficulty
-4. Setup and usage instructions
-5. Baseline scores
-
----
-
-## 🧪 Testing
-
-The project includes **84 unit tests** across 20 test classes:
-
-| Test Class | Tests | What it covers |
-|-----------|-------|----------------|
-| `TestReset` | 6 | Clean state, all 4 tasks, invalid task handling |
-| `TestDeterministicNoise` | 3 | Reproducibility, seed isolation, amplitude bounds |
-| `TestActions` | 9 | TERMINATE, UPSCALE, DOWNSCALE, REDISTRIBUTE, IGNORE, inbox |
-| `TestSLABreach` | 1 | Breach detection, episode termination |
-| `TestGrading` | 4 | All 4 graders, score ranges, carbon reduction scoring |
-| `TestCarbonTracking` | 4 | Accumulation, reduction after terminate, catalog coverage |
-| `TestTrailingHistory` | 3 | Initial values, growth, max depth enforcement |
-| `TestEpisodeBoundaries` | 3 | Max steps, budget overrun, post-done behavior |
-| `TestClamp` | 4 | Utility function edge cases |
-| `TestCascadingFailures` | 3 | Load redistribution after terminates → SLA breach risk |
-| `TestBudgetEdgeCases` | 4 | Zero budget, negative budget, burn rate reduction |
-| `TestInvalidActions` | 6 | Double-terminate, ghost servers, max tier, null target |
-| `TestDownscaleSafety` | 3 | 1.8× CPU multiplier, cost halving, breach risk |
-| `TestGreenOpsEdgeCases` | 4 | Carbon rate tracking, ARM vs x86, strategy comparison |
-| `TestInboxMechanics` | 6 | Reply bonus, inbox clearing, empty reply, message content |
-| `TestOptimalPlaySequences` | 4 | Known-optimal action sequences for each task type |
-| `TestDeterministicReplay` | 3 | Same actions → same scores, observation reproducibility |
-| `TestGraderBoundaries` | 5 | Score clamping, zero-score conditions, baseline scores |
-| `TestUpscaleQueueTiming` | 4 | Queued upscale, next-step application, terminated server |
-| `TestTrafficSimulation` | 4 | Logarithmic growth (hard), stable traffic, spike flags |
-
-Run via Docker:
+ 
+## Setup
+ 
+**Requirements:** Python 3.10+, Docker
+ 
+Set these three environment variables before running:
+ 
+| Variable | Required | Description |
+|---|---|---|
+| `API_BASE_URL` | Yes | OpenAI-compatible LLM endpoint |
+| `MODEL_NAME` | Yes | Model identifier |
+| `HF_TOKEN` | Yes | Hugging Face or provider API key |
+ 
+### Docker (recommended)
+ 
 ```bash
-docker run --rm cloudfinops-env:latest python3 -m pytest tests/ -v --tb=short
+git clone https://github.com/Fnc-Jit/Cloud-Solutions_Re.git
+cd cloudfinops_env
+ 
+docker build -t cloudfinops-env:latest -f server/Dockerfile .
+docker run -p 8000:8000 cloudfinops-env:latest
+ 
+# Open dashboard
+open http://localhost:8000/dashboard
+ 
+# Run evaluator against live server
+docker run \
+  -e ENV_BASE_URL=http://host.docker.internal:8000 \
+  cloudfinops-env:latest python3 /app/env/inference.py
 ```
-
-Or locally:
+ 
+### Local (uv)
+ 
 ```bash
+uv sync
+uv run server
+# or: uvicorn server.app:app --reload --host 0.0.0.0 --port 8000
+```
+ 
+### Local (pip)
+ 
+```bash
+python3 -m venv .venv && source .venv/bin/activate
+pip install "openenv-core[core]>=0.2.2" pytest
+pip install -e .
+python inference.py
+```
+ 
+### Python SDK
+ 
+```python
+from cloudfinops_env import CloudFinOpsAction, CloudFinOpsEnv
+ 
+with CloudFinOpsEnv(base_url="http://localhost:8000") as env:
+    result = env.reset()
+    print(f"Budget: {result.observation.budget_remaining}")
+ 
+    result = env.step(CloudFinOpsAction(command="TERMINATE", target_id="idle-0"))
+    print(f"Reward: {result.reward}")
+```
+ 
+---
+ 
+## API Reference
+ 
+| Method | Path | Description |
+|---|---|---|
+| `GET` | `/health` | Health check |
+| `POST` | `/reset` | Reset for a task (`{"task_id": "easy"}`) |
+| `POST` | `/step` | Submit action, advance engine |
+| `GET` | `/state` | Current observation (read-only) |
+| `GET` | `/schema` | Action/Observation JSON schemas |
+| `WS` | `/ws` | WebSocket persistent session |
+| `GET` | `/dashboard` | Real-time live dashboard |
+| `GET` | `/history` | Action history for current episode |
+ 
+---
+ 
+## Testing
+ 
+84 unit tests across 20 test classes. Covers engine mechanics, scoring, edge cases, and deterministic replay.
+ 
+```bash
+# Docker
+docker run --rm cloudfinops-env:latest python3 -m pytest tests/ -v --tb=short
+ 
+# Local
 python3 -m pytest tests/ -v --tb=short
 ```
-
+ 
+| Test Class | Tests | Coverage area |
+|---|---|---|
+| `TestReset` | 6 | Clean state, all 4 tasks, invalid task handling |
+| `TestDeterministicNoise` | 3 | Reproducibility, seed isolation, amplitude bounds |
+| `TestActions` | 9 | All 5 commands + inbox reply |
+| `TestSLABreach` | 1 | Breach detection, episode termination |
+| `TestGrading` | 4 | All 4 graders, score ranges, carbon scoring |
+| `TestCarbonTracking` | 4 | Accumulation, post-terminate reduction, catalog coverage |
+| `TestTrailingHistory` | 3 | Initial values, growth, max depth enforcement |
+| `TestEpisodeBoundaries` | 3 | Max steps, budget overrun, post-done behavior |
+| `TestCascadingFailures` | 3 | Redistribution after terminates → SLA breach risk |
+| `TestBudgetEdgeCases` | 4 | Zero budget, negative budget, burn rate |
+| `TestInvalidActions` | 6 | Double-terminate, ghost servers, null target |
+| `TestDownscaleSafety` | 3 | 1.8× CPU multiplier, cost halving, breach risk |
+| `TestGreenOpsEdgeCases` | 4 | Carbon rate tracking, ARM vs x86 |
+| `TestInboxMechanics` | 6 | Reply bonus, clearing, empty reply |
+| `TestOptimalPlaySequences` | 4 | Known-optimal sequences per task type |
+| `TestDeterministicReplay` | 3 | Same actions → same scores |
+| `TestGraderBoundaries` | 5 | Score clamping, zero-score conditions |
+| `TestUpscaleQueueTiming` | 4 | Queue behavior, next-step application |
+| `TestTrafficSimulation` | 4 | Logarithmic growth (hard), spike detection |
+ 
 ---
-
-## 🌐 Environment Variables
-
-| Variable | Required | Description |
-|----------|----------|-------------|
-| `API_BASE_URL` | **Yes** | The API endpoint for the LLM (OpenAI-compatible) |
-| `MODEL_NAME` | **Yes** | The model identifier to use for inference |
-| `HF_TOKEN` | **Yes** | Your Hugging Face / API key |
-| `ENV_BASE_URL` | No | Environment server URL (default: `http://localhost:8000`) |
-
+ 
+## CI/CD
+ 
+GitHub Actions runs on every push and PR:
+ 
+1. Unit tests (`pytest tests/ -v`)
+2. Syntax check (AST parse all Python files)
+3. OpenEnv spec validation (`openenv.yaml` has ≥3 tasks)
+4. Docker build + container smoke test
 ---
-
-## 🔄 CI/CD
-
-GitHub Actions runs automatically on every push/PR:
-1. **Unit Tests** — `pytest tests/ -v`
-2. **Syntax Check** — AST parse all Python files
-3. **OpenEnv Spec** — Verify `openenv.yaml` has ≥3 tasks
-4. **Docker Build** — Full image build + container smoke test
-
-## ✅ Hackathon Submission Checklist
-
-Before final submission, verify all of the following:
-
-1. `openenv.yaml` defines spec metadata, env vars, and 3+ tasks.
-2. `inference.py` is at repository root and uses OpenAI client with `API_BASE_URL`, `MODEL_NAME`, `HF_TOKEN`.
-3. Inference stdout emits only required protocol lines:
-  - `[START] task=<task_name> env=<benchmark> model=<model_name>`
-  - `[STEP] step=<n> action=<action_str> reward=<0.00> done=<true|false> error=<msg|null>`
-  - `[END] success=<true|false> steps=<n> score=<score> rewards=<r1,r2,...,rn>`
-4. `docker build` and `docker run` start successfully and endpoints respond.
-5. Space root URL returns HTTP 200 and `/reset` responds successfully.
-
----
-
-## 🏅 Hackathon Evaluation Phases
-
-### Phase 1: Automated Validation *(Pass/Fail Gate)*
-HF Space deploys, OpenEnv spec compliance, Dockerfile builds, baseline reproduces, 3+ tasks with graders.
-
-### Phase 2: Agentic Evaluation *(Scored)*
-Baseline agent re-run, standard Open LLM agent (e.g. Nemotron 3 Super) run against all environments, score variance check.
-
-### Phase 3: Human Review
-Top submissions reviewed by Meta and Hugging Face engineers for real-world utility, creativity, and exploit checks.
-
----
-
-## 🏆 Key Design Decisions
-
-1. **Deterministic Noise** — Hash-seeded jitter ensures reproducible episodes while maintaining realistic metric variation.
-2. **Delayed Scaling** — UPSCALE takes effect next step, forcing agents to plan ahead (not just react).
-3. **Carbon Emissions** — Models real-world ARM vs x86 efficiency gap, rewarding sustainable infrastructure.
-4. **Trailing Metrics** — Designed for LLM agents with limited context memory — trend detection without explicit memory.
-5. **Human-in-the-Loop** — Inbox/reply system tests whether agents can communicate with humans while managing infra.
-6. **Upscale Tier Path** — Enforces realistic upgrade constraints (`t3.micro` → `t3.medium` → `t3.large`, max 2 upgrades).
-7. **LLM Conversational Memory** — The inference agent maintains multi-turn conversation history across all steps within an episode. Each observation sent to the LLM includes: (a) a structured summary of running vs terminated servers, (b) a log of all previous actions and their rewards, and (c) explicit warnings about already-terminated servers. This prevents the most common LLM failure mode — repeatedly targeting the same server — and enables the agent to reason about its own action history for better sequential decision-making.
-8. **Strict Score Range** — All grader scores are clamped to the open interval (0, 1) via epsilon bounds (`0.001 ≤ score ≤ 0.999`), ensuring compliance with hackathon validation requirements.
-
----
-
-## 📁 Project Structure
-
+ 
+## Project Structure
+ 
 ```
 cloudfinops_env/
-├── __init__.py              # Module exports (CloudFinOpsAction, CloudFinOpsObservation, CloudFinOpsEnv)
-├── models.py                # Pydantic schemas inheriting from openenv base types
-├── client.py                # CloudFinOpsEnv(EnvClient) — Python SDK client
-├── openenv.yaml             # OpenEnv manifest (spec_version: 1)
-├── pyproject.toml           # Project metadata, deps, entry point
-├── README.md                # This file
-├── inference.py             # LLM baseline evaluator
-├── .env.example             # Reference template for environment variables
-├── .gitignore
+├── __init__.py                          # Module exports
+├── models.py                            # Pydantic schemas (openenv base types)
+├── client.py                            # CloudFinOpsEnv SDK client
+├── openenv.yaml                         # OpenEnv manifest (spec_version: 1)
+├── pyproject.toml
+├── README.md
+├── inference.py                         # LLM baseline evaluator
 ├── server/
-│   ├── __init__.py          # Server module exports
-│   ├── cloudfinops_env_environment.py  # Physics engine + OpenEnv Environment wrapper
-│   ├── app.py               # FastAPI app via openenv create_app()
-│   ├── dashboard.html       # Real-time glassmorphism web dashboard
-│   ├── Dockerfile           # Multi-stage build using openenv-base
-│   └── requirements.txt     # Server-specific deps
+│   ├── cloudfinops_env_environment.py   # Physics engine + OpenEnv wrapper
+│   ├── app.py                           # FastAPI app via openenv create_app()
+│   ├── dashboard.html                   # Real-time dashboard
+│   ├── Dockerfile
+│   └── requirements.txt
 ├── tests/
-│   ├── __init__.py
-│   └── test_engine.py       # 84 pytest unit tests
+│   └── test_engine.py                   # 84 pytest unit tests
 └── assets/
     ├── dashboard.png
     └── dashboard_details.png
 ```
-
+ 
 ---
-
-## 📜 License
-
-MIT License — Built with ❤️ By Jitraj for the Meta AI × Hugging Face OpenEnv Hackathon 2025.
+ 
+## Tech Stack
+ 
+| Layer | Technology |
+|---|---|
+| Backend | Python 3.10, FastAPI, OpenEnv core |
+| RL environment | Custom physics engine (environment.py) |
+| Schemas | Pydantic v2 |
+| Frontend | HTML5, CSS3, JavaScript (dashboard) |
+| Container | Docker multi-stage build |
+| CI | GitHub Actions |
+ 
+---
+ 
+## Roadmap
+ 
+- [ ] Continuous traffic patterns (sine wave, diurnal cycle) beyond current step-function model
+- [ ] Multi-agent mode — separate cost, SLA, and carbon agents that must coordinate
+- [ ] Real AWS pricing API integration for dynamic cost modeling
+- [ ] Extended carbon model with regional grid intensity (us-east-1 vs eu-west-1)
+- [ ] Persistent episode history for cross-run benchmarking
+---
+ 
+## Related Projects
+ 
+- **[God's Eye](https://github.com/Fnc-Jit/Gods-Eye)** — Autonomous multi-agent SIEM platform
+- **[MissionCtrl](https://github.com/Fnc-Jit/MissionCtrl-MultiAgent-Orchastrator)** — AI oversight fleet environment for hallucination detection in multi-agent systems
+---
+ 
+## License
+ 
+MIT
