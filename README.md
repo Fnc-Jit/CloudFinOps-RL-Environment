@@ -1,25 +1,13 @@
----
-title: CloudFinOps Env
-emoji: ☁️
-colorFrom: blue
-colorTo: green
-sdk: docker
-pinned: false
-app_port: 8000
-base_path: /web
-tags:
-  - openenv
----
  
 <p align="center">
-  <img src="https://img.shields.io/badge/Python-3.10+-3776AB?style=flat-square&logo=python&logoColor=white" />
-  <img src="https://img.shields.io/badge/FastAPI-0.111-009688?style=flat-square&logo=fastapi&logoColor=white" />
-  <img src="https://img.shields.io/badge/OpenEnv-compatible-22c55e?style=flat-square" />
-  <img src="https://img.shields.io/badge/Tests-84_passed-22c55e?style=flat-square" />
+  <img src="https://img.shields.io/badge/Python-3.10+-3776AB?style=for-the-badge&logo=python&logoColor=white" />
+  <img src="https://img.shields.io/badge/FastAPI-0.111-009688?style=for-the-badge&logo=fastapi&logoColor=white" />
+  <img src="https://img.shields.io/badge/OpenEnv-compatible-22c55e?style=for-the-badge" />
+  <img src="https://img.shields.io/badge/Tests-84_passed-22c55e?style=for-the-badge" />
   <a href="https://github.com/Fnc-Jit/Cloud-Solutions_Re/actions/workflows/validate.yml">
-    <img src="https://github.com/Fnc-Jit/Cloud-Solutions_Re/actions/workflows/validate.yml/badge.svg?style=flat-square" />
+    <img src="https://github.com/Fnc-Jit/Cloud-Solutions_Re/actions/workflows/validate.yml/badge.svg" />
   </a>
-  <img src="https://img.shields.io/badge/License-MIT-6366f1?style=flat-square" />
+  <img src="https://img.shields.io/badge/License-MIT-6366f1?style=for-the-badge" />
 </p>
 <h1 align="center">CloudFinOps-Env</h1>
  
@@ -29,6 +17,7 @@ tags:
 <p align="center">
   <b>Built for the Meta AI × Hugging Face OpenEnv Hackathon</b>
 </p>
+
 ---
  
 ![CloudFinOps Dashboard](assets/dashboard.png)
